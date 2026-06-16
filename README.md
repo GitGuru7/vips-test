@@ -177,6 +177,22 @@ Procedure to make vip:
 
 For remote commands add one more field of `dstChainId` specifying layer zero chain id of desired remote chain for instance `dstChainId = 101` for Ethereum. Lz chain ids can be retrieve from `LzChainId` enum present in types.
 
+### vUSDC Supply Cap Configuration
+
+Supply caps limit the total amount of an asset that can be supplied to a Venus market. To update the supply cap for vUSDC (or any other market), include a `setMarketSupplyCaps` call on the relevant Comptroller in your VIP:
+
+```typescript
+{
+  target: COMPTROLLER_ADDRESS, // e.g. "0xfD36E2c2a6789Db23113685031d7F16329158384" (Core pool Comptroller on BSC)
+  signature: "setMarketSupplyCaps(address[],uint256[])",
+  params: [[VUSDC_ADDRESS], [NEW_CAP]], // e.g. [["0xecA88125a5ADbe82614ffC12D0DB554E2e2867C8"], ["180000000000000"]]
+  // For Ethereum-side vUSDC, add:
+  dstChainId: LzChainId.ethereum, // e.g. 101 (LayerZero chain id for Ethereum)
+}
+```
+
+`NEW_CAP` is expressed in the token's native decimals — for example `"180000000000000"` is 180,000,000 USDC (6 decimals). Omit `dstChainId` for BSC markets.
+
 ### Simulations for multiple networks proposal
 
 In .env update `ARCHIVE_NODE_<NETWORK_NAME>` with the URL of desired network.
