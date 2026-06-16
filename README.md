@@ -1,5 +1,7 @@
 # vip
 
+> **Note:** This is a sandbox fork used for Venus dev-bot smoke tests.
+
 ### Prerequisites
 
 - NodeJS - 16.x
