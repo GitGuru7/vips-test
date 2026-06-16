@@ -1,6 +1,6 @@
 # vip
 
-> **Note:** This is a sandbox fork used for Venus dev-bot smoke tests.
+> **Note:** This is a fork used for Venus dev-bot smoke tests.
 
 ### Prerequisites
 
