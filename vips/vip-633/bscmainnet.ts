@@ -38,7 +38,7 @@ The change is applied via a single \`setMarketSupplyCaps\` call on the Core Pool
       },
     ],
     meta,
-    ProposalType.FAST_TRACK,
+    ProposalType.REGULAR,
   );
 };
 
