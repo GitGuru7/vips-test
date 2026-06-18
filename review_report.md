@@ -13,6 +13,21 @@ The fix is well-reasoned and correct. It replaces a false-negative gas check (wh
 
 ---
 
+## Recommended Fixes (Action Items for the PR Author)
+
+The verdict is **approve**: the change is correct and there are **no blocking issues**. The items below are non-blocking improvements the review recommends, ordered by value. None must land before merge.
+
+| #   | Severity | Fix | Where | Why |
+| --- | -------- | --- | ----- | --- |
+| F1  | Low (defensive) | **Restore the Safe `threshold` slot** after estimating. Capture the original value before `hardhat_setStorageAt`, and reset it once `estimateGas.execTransaction` returns (e.g. in a `try/finally`). | `estimateProposeViaMultisig` | Leaves the fork in a clean state so any future test step that reads the proposer Safe threshold isn't silently affected by a persistent `3 → 1` mutation. |
+| F2  | Low (cleanup) | **Call `isSafe(DEFAULT_PROPOSER_ADDRESS)` once** and store it: `const isProposerSafe = await isSafe(...)`, then reuse for both the estimate guard and the `enforce: !isProposerSafe` flag. | `testVip` "can be proposed" step | Removes a redundant RPC round-trip; also guarantees the guard and the enforce flag can never diverge. |
+| F3  | Low (correctness margin) | **Document / optionally pad the estimate.** The 1-of-1 `v=1` estimate skips ecrecover and 2 of the 3 sigs, so it *understates* the real 3-of-5 cost by ~10–15k gas. Add a code comment noting this, or add a small fixed buffer, so `requiredGasLimit` is a true upper bound rather than a slight under-estimate. | `estimateProposeViaMultisig` | Closes the residual (~10–15k) false-negative window; today the check could still pass a proposal that is marginally over the cap on the real n-of-m path. |
+| F4  | Low (coverage) | **Add an isolated framework test** reproducing the VIP-634 Part 1 regression: a proposal whose direct-EOA `propose()` consumes < cap (old check passes) but whose `estimateProposeViaMultisig()` returns a limit > cap (new check enforces). See the "Suggested enhancement test" section below. | new `src/vip-framework/*.test.ts` | The new helpers are currently only exercised indirectly via mainnet-fork simulations; a unit test locks in the regression the PR is built to catch. |
+
+These map 1:1 to the four entries in the **Issues Found** table below.
+
+---
+
 ## Checklist
 
 | #   | Item | Status | Verification Method | Evidence |
