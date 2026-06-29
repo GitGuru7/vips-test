@@ -32,6 +32,20 @@ const BLOCK_NUMBER = 103745245;
 const STALE_PERIOD_OVERRIDE = 315360000; // 10 years
 const PRICE_TOLERANCE_BPS = 500; // 5%
 
+// Previous Binance Oracle deployment, superseded by BINANCE_ORACLE (the new one set as PIVOT here).
+const OLD_BINANCE_ORACLE = "0x9e6928ec418948ceb9f1cd9872fd312b13d841d0";
+
+// Pre-VIP oracle landscape at BLOCK_NUMBER, read on-chain (ResilientOracle.getTokenConfig):
+//   - PIVOT is the OLD Binance Oracle for: AAVE, BCH, DOGE, DOT, FDUSD, FIL, LINK, LTC, SOL, TUSD, UNI, WBETH, THE
+//   - PIVOT is RedStone for: ADA, CAKE, DAI, XRP, XVS
+//   - PIVOT is already the NEW Binance Oracle for: asBNB, VAI
+//   - PIVOT is the SolvBTC-specific oracle for: SolvBTC
+// 16 of the 21 markets currently run an ENABLED FALLBACK (RedStone or the old Binance Oracle); this VIP
+// clears every FALLBACK to address(0). The 5 below already have no enabled FALLBACK pre-VIP.
+const PREVIP_FALLBACK_DISABLED = ["TUSD", "WBETH", "THE", "asBNB", "VAI"];
+// asBNB and VAI already have the NEW Binance Oracle as PIVOT; for everyone else the VIP introduces it.
+const PREVIP_BINANCE_PIVOT = ["asBNB", "VAI"];
+
 // Base tokens read by the custom MAIN oracles (asBNB -> slisBNB, WBETH -> ETH, SolvBTC -> BTCB).
 // Their ResilientOracle feeds must also be made non-stale for the custom oracles to resolve on a fork.
 const SLISBNB = "0xB0b84D294e0C75A6abe60171b70edEb2EFd14A1B";
@@ -72,28 +86,44 @@ forking(BLOCK_NUMBER, async () => {
   // PRE-VIP — Binance is not the PIVOT for the markets being migrated (asBNB/VAI already have it)
   // =====================================================================================
   describe("Pre-VIP state", () => {
-    const alreadyBinancePivot = ["asBNB", "VAI"];
-
     for (const asset of ASSETS) {
+      const alreadyBinancePivot = PREVIP_BINANCE_PIVOT.includes(asset.symbol);
+      const fallbackEnabledPreVip = !PREVIP_FALLBACK_DISABLED.includes(asset.symbol);
+
       it(`${asset.symbol}: MAIN oracle is the expected on-chain oracle`, async () => {
         const config = await resilientOracle.getTokenConfig(asset.asset);
         expect(config.oracles[0].toLowerCase()).to.equal(asset.mainOracle.toLowerCase());
       });
 
-      it(`${asset.symbol}: PIVOT slot ${
-        alreadyBinancePivot.includes(asset.symbol) ? "is" : "is not"
-      } the Binance Oracle`, async () => {
+      it(`${asset.symbol}: PIVOT slot ${alreadyBinancePivot ? "is" : "is not"} the (new) Binance Oracle`, async () => {
         const config = await resilientOracle.getTokenConfig(asset.asset);
-        if (alreadyBinancePivot.includes(asset.symbol)) {
+        if (alreadyBinancePivot) {
           expect(config.oracles[1].toLowerCase()).to.equal(BINANCE_ORACLE.toLowerCase());
         } else {
           expect(config.oracles[1].toLowerCase()).to.not.equal(BINANCE_ORACLE.toLowerCase());
+        }
+      });
+
+      // Snapshot the FALLBACK slot the VIP is about to clear, so the migration scope is tested end-to-end.
+      it(`${asset.symbol}: FALLBACK is ${
+        fallbackEnabledPreVip ? "currently enabled (cleared by this VIP)" : "already empty"
+      }`, async () => {
+        const config = await resilientOracle.getTokenConfig(asset.asset);
+        if (fallbackEnabledPreVip) {
+          expect(config.enableFlagsForOracles[2]).to.equal(true);
+          expect(config.oracles[2]).to.not.equal(ethers.constants.AddressZero);
+        } else {
+          expect(config.oracles[2]).to.equal(ethers.constants.AddressZero);
         }
       });
     }
 
     it("Binance symbol override Cake -> CAKE is already configured", async () => {
       expect(await binanceOracle.symbols("Cake")).to.equal("CAKE");
+    });
+
+    it("the Binance Oracle set as PIVOT is the new deployment, not the superseded one", async () => {
+      expect(BINANCE_ORACLE.toLowerCase()).to.not.equal(OLD_BINANCE_ORACLE.toLowerCase());
     });
   });
 
@@ -106,6 +136,8 @@ forking(BLOCK_NUMBER, async () => {
       await expectEvents(txResponse, [RESILIENT_ORACLE_ABI], ["TokenConfigAdded"], [ASSETS.length]);
       // One MaxStalePeriodAdded per symbol on the Binance Oracle.
       await expectEvents(txResponse, [BINANCE_ORACLE_ABI], ["MaxStalePeriodAdded"], [ASSETS.length]);
+      // One ValidateConfigAdded per market on the BoundValidator.
+      await expectEvents(txResponse, [BOUND_VALIDATOR_ABI], ["ValidateConfigAdded"], [ASSETS.length]);
     },
   });
 

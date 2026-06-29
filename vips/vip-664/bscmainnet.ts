@@ -218,6 +218,16 @@ The Binance feed symbol override "Cake" → "CAKE" is re-affirmed.
 - 1 BoundValidator \`setValidateConfigs\` call configuring ${ASSETS.length} markets with bounds 0.95 / 1.05.
 - 1 ResilientOracle \`setTokenConfigs\` call updating ${ASSETS.length} markets to [MAIN unchanged, Binance PIVOT, empty FALLBACK].
 
+#### Heartbeat (maxStalePeriod) notes
+
+Most assets use a 25h (90000s) heartbeat. The following are not 25h and, where noted, tighten the value currently configured on the Binance Oracle:
+- **FDUSD, WBETH, XVS → 20m (1200s).** For **XVS** this is a reduction from the current on-chain value of 86700s (~24h) to 1200s, matching the requested 20-minute heartbeat for the XVS feed.
+- **SolvBTC → 13h (46800s)** (current on-chain value 43500s).
+
+#### FALLBACK clearing scope
+
+Every market's FALLBACK slot is set to the zero address (enable flags [MAIN, PIVOT, FALLBACK] = [true, true, false]). 16 of the ${ASSETS.length} markets currently run an *enabled* FALLBACK oracle (RedStone or the previous Binance Oracle deployment \`0x9e6928ec418948ceb9f1cd9872fd312b13d841d0\`); this VIP removes those FALLBACKs, leaving a [MAIN, Binance PIVOT] two-oracle configuration. The remaining 5 markets (TUSD, WBETH, THE, asBNB, VAI) already have no enabled FALLBACK.
+
 #### Voting options
 
 - **For** — Execute this proposal
